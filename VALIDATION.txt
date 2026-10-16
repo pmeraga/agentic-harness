@@ -41,3 +41,12 @@ Initial disk-exhaustion failures were resolved by freeing space and recreating d
 Live retry: both agent runtimes reached OpenAI and received AuthenticationError: API key invalidated. No benchmark solution was produced.
 
 Latest live retry: OpenAI reports no credits remaining. Retries stopped; no live accuracy result.
+
+SUCCESSFUL LIVE VALIDATION
+Model: openai/gpt-5-mini
+Bash: 5/5 passed
+Python: 3/3 passed
+All eight trajectories: Submitted
+API calls reported by mini: 27
+Model cost reported by mini: $0.05837265
+Details: LIVE_RESULTS.json

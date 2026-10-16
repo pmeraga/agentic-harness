@@ -155,7 +155,7 @@ Unit/integration tests run all eight real benchmark setup/evaluation flows throu
 
 Docker-marked smoke tests exercise the actual containers, volumes, cleanup, and both benchmark adapters. They are opt-in with `HARNESS_DOCKER_TEST=1` and require `make smoke` to build their images. After `make images`, use the foreground mini commands above for live LLM acceptance testing.
 
-Validation on macOS/Apple Silicon: 23 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images built successfully. Live GPT-5 Mini attempts reached the provider but were blocked initially by invalid/expired keys. The latest retry received a no-credits-remaining response. These are not accuracy results. See `VALIDATION.txt` for recorded evidence.
+Validation on macOS/Apple Silicon: 23 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images built successfully. Live GPT-5 Mini validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost. See `LIVE_RESULTS.json` for per-task grades, run IDs, timings, and usage. Earlier authentication/credit failures were resolved before these successful runs. This is one validation sample on the supplied toy tasks, not a broader model-performance claim. See `VALIDATION.txt` for recorded evidence.
 
 The real-mini Docker tests run the actual mini CLI, config, and submission-checking wrapper, replacing only the model responses with known actions. They verify Linux dependency compatibility, execution, grading, and cleanup without API charges.
 

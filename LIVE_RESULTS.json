@@ -1,0 +1,290 @@
+{
+  "model": "openai/gpt-5-mini",
+  "passed": 8,
+  "total": 8,
+  "accuracy": 1.0,
+  "reported_cost_usd": 0.05837265,
+  "api_calls": 27,
+  "cost_note": "Reported by mini-swe-agent; not a billing invoice.",
+  "benchmarks": [
+    {
+      "name": "bash-operations",
+      "passed": 5,
+      "total": 5
+    },
+    {
+      "name": "python-tasks",
+      "passed": 3,
+      "total": 3
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "be6308f5e8a943a795eebb218a1219c4",
+      "created": 1792193775.419659,
+      "state": "completed",
+      "counts": {
+        "queued": 0,
+        "running": 0,
+        "completed": 1,
+        "error": 0
+      },
+      "total": 1,
+      "passed": 1,
+      "accuracy": 1.0,
+      "mean_score": 1.0,
+      "tasks": [
+        {
+          "task_id": "bash-001",
+          "state": "completed",
+          "started": 1792193777.14774,
+          "finished": 1792193800.5121,
+          "result": {
+            "task_id": "bash-001",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "expected": "Hello World",
+              "actual": "Hello World"
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.00275925,
+              "api_calls": 2
+            }
+          }
+        }
+      ],
+      "benchmark": "bash-operations"
+    },
+    {
+      "run_id": "935c1cb85445418ca384b0a15b478afd",
+      "created": 1792193775.500252,
+      "state": "completed",
+      "counts": {
+        "queued": 0,
+        "running": 0,
+        "completed": 1,
+        "error": 0
+      },
+      "total": 1,
+      "passed": 1,
+      "accuracy": 1.0,
+      "mean_score": 1.0,
+      "tasks": [
+        {
+          "task_id": "py-001",
+          "state": "completed",
+          "started": 1792193800.5194628,
+          "finished": 1792193841.059127,
+          "result": {
+            "task_id": "py-001",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.17, pytest-8.3.5, pluggy-1.7.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /dev\nconfigfile: null\ncollecting ... collected 1 item\n\n../../dev::test_add PASSED                                               [100%]\n\n============================== 1 passed in 0.00s ===============================\n",
+              "stderr": "",
+              "return_code": 0
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.01039035,
+              "api_calls": 3
+            }
+          }
+        }
+      ],
+      "benchmark": "python-tasks"
+    },
+    {
+      "run_id": "5a337bfd541448569f1fdd2aea624dbd",
+      "created": 1792193848.5574558,
+      "state": "completed",
+      "counts": {
+        "queued": 0,
+        "running": 0,
+        "completed": 4,
+        "error": 0
+      },
+      "total": 4,
+      "passed": 4,
+      "accuracy": 1.0,
+      "mean_score": 1.0,
+      "tasks": [
+        {
+          "task_id": "bash-002",
+          "state": "completed",
+          "started": 1792193849.791497,
+          "finished": 1792193863.2745962,
+          "result": {
+            "task_id": "bash-002",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "existing_files": [
+                "test_dir/file1.txt",
+                "test_dir/file2.txt",
+                "test_dir/file3.txt"
+              ],
+              "missing_files": []
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.0024765,
+              "api_calls": 2
+            }
+          }
+        },
+        {
+          "task_id": "bash-003",
+          "state": "completed",
+          "started": 1792193863.2783968,
+          "finished": 1792193876.502943,
+          "result": {
+            "task_id": "bash-003",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "expected": "5",
+              "actual": "5"
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.00290025,
+              "api_calls": 2
+            }
+          }
+        },
+        {
+          "task_id": "bash-004",
+          "state": "completed",
+          "started": 1792193876.511439,
+          "finished": 1792193891.6829572,
+          "result": {
+            "task_id": "bash-004",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "found_lines": [
+                "file1.txt",
+                "file2.txt",
+                "document.txt"
+              ],
+              "missing_lines": []
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.0037855,
+              "api_calls": 3
+            }
+          }
+        },
+        {
+          "task_id": "bash-005",
+          "state": "completed",
+          "started": 1792193891.687594,
+          "finished": 1792194014.663632,
+          "result": {
+            "task_id": "bash-005",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "expected": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10",
+              "actual": "1\n2\n3\n4\n5\n6\n7\n8\n9\n10"
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.0036035,
+              "api_calls": 2
+            }
+          }
+        }
+      ],
+      "benchmark": "bash-operations"
+    },
+    {
+      "run_id": "1ab324886b0e4eada270e1a00b6445fd",
+      "created": 1792193848.626501,
+      "state": "completed",
+      "counts": {
+        "queued": 0,
+        "running": 0,
+        "completed": 2,
+        "error": 0
+      },
+      "total": 2,
+      "passed": 2,
+      "accuracy": 1.0,
+      "mean_score": 1.0,
+      "tasks": [
+        {
+          "task_id": "py-002",
+          "state": "completed",
+          "started": 1792194014.6669629,
+          "finished": 1792194062.607699,
+          "result": {
+            "task_id": "py-002",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.17, pytest-8.3.5, pluggy-1.7.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /dev\nconfigfile: null\ncollecting ... collected 2 items\n\n../../dev::test_fibonacci_base_cases PASSED                              [ 50%]\n../../dev::test_fibonacci_sequence PASSED                                [100%]\n\n============================== 2 passed in 0.01s ===============================\n",
+              "stderr": "",
+              "return_code": 0
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.01622315,
+              "api_calls": 6
+            }
+          }
+        },
+        {
+          "task_id": "py-003",
+          "state": "completed",
+          "started": 1792194062.611115,
+          "finished": 1792194112.934367,
+          "result": {
+            "task_id": "py-003",
+            "passed": true,
+            "score": 1.0,
+            "details": {
+              "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.11.17, pytest-8.3.5, pluggy-1.7.0 -- /usr/local/bin/python\ncachedir: .pytest_cache\nrootdir: /dev\nconfigfile: null\ncollecting ... collected 2 items\n\n../../dev::test_get_nth_valid PASSED                                     [ 50%]\n../../dev::test_get_nth_out_of_bounds PASSED                             [100%]\n\n============================== 2 passed in 0.01s ===============================\n",
+              "stderr": "",
+              "return_code": 0
+            }
+          },
+          "error": null,
+          "agent": {
+            "exit_status": "Submitted",
+            "model_stats": {
+              "instance_cost": 0.016234149999999996,
+              "api_calls": 7
+            }
+          }
+        }
+      ],
+      "benchmark": "python-tasks"
+    }
+  ]
+}
