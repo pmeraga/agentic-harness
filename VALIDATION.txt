@@ -1,0 +1,8 @@
+Validation environment: macOS, Python 3.11.14
+Command: .venv/bin/python -m pytest -q
+
+...............ss........                                                [100%]
+23 passed, 2 skipped in 7.47s
+
+Mini compatibility check: pinned mini-swe-agent 1.17.0 and dependency set; deterministic model; Submitted; 2 simulated calls; cost 0.0.
+Docker CLI/daemon unavailable. Docker tests skipped; no live LLM provider was called.

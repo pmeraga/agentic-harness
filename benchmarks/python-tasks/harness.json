@@ -1,0 +1,6 @@
+{
+  "id_field": "id", "prompt_field": "prompt",
+  "setup": ["python", "{benchmark}/prepare.py", "{task_id}", "--workspace", "{workspace}"],
+  "evaluate": ["python", "{benchmark}/grade.py", "{task_id}", "--workspace", "{workspace}"],
+  "evaluation_exit_codes": [0]
+}

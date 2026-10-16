@@ -1,0 +1,6 @@
+{
+  "id_field": "task_id", "prompt_field": "problem_statement",
+  "setup": ["python", "{benchmark}/setup.py", "--workspace-dir", "{workspace}", "--task", "{task_id}"],
+  "evaluate": ["python", "{benchmark}/evaluate.py", "--workspace-dir", "{workspace}", "--task", "{task_id}"],
+  "evaluation_exit_codes": [0, 1]
+}

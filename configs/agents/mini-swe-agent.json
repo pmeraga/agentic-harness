@@ -1,0 +1,17 @@
+{
+  "command": [
+    "python",
+    "/opt/harness/run_mini.py",
+    "{prompt}"
+  ],
+  "images": {
+    "alpine:latest": "agentic-harness-mini-alpine:1",
+    "python:3.11-slim": "agentic-harness-mini-python:1"
+  },
+  "env": [
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "MSWEA_MODEL_NAME"
+  ]
+}

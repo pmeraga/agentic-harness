@@ -1,0 +1,2 @@
+FROM python:3.11-slim
+COPY tests/fixture_agent.py /opt/fixture_agent.py

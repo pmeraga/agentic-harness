@@ -1,0 +1,7 @@
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends bash git ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY requirements-mini.txt /opt/harness/requirements-mini.txt
+RUN pip install --no-cache-dir -r /opt/harness/requirements-mini.txt
+COPY mini.yaml /opt/harness/mini.yaml
+ENV MSWEA_CONFIGURED=true
+COPY run_mini.py /opt/harness/run_mini.py
