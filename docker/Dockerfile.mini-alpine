@@ -1,10 +1,8 @@
 FROM alpine:3.21
 COPY requirements-mini.txt /opt/harness/requirements-mini.txt
 RUN apk add --no-cache python3 py3-pip bash git ca-certificates libstdc++ \
-    && apk add --no-cache --virtual .build-deps build-base python3-dev cargo openssl-dev libffi-dev \
     && python3 -m venv /opt/mini \
-    && /opt/mini/bin/pip install --no-cache-dir -r /opt/harness/requirements-mini.txt \
-    && apk del .build-deps
+    && /opt/mini/bin/pip install --no-cache-dir --only-binary=:all: -r /opt/harness/requirements-mini.txt
 ENV PATH=/opt/mini/bin:$PATH MSWEA_CONFIGURED=true
 COPY mini.yaml /opt/harness/mini.yaml
 COPY run_mini.py /opt/harness/run_mini.py

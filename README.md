@@ -148,13 +148,16 @@ The deterministic fixture in `tests/fixture_agent.py` contains known solutions s
 ```bash
 make test          # no Docker, keys, or API charges
 make smoke         # real Docker lifecycle, known fixture solutions, no API charges
+make mini-smoke    # actual mini CLI in both images, simulated model responses, no API charges
 ```
 
 Unit/integration tests run all eight real benchmark setup/evaluation flows through the queue using a test-only local runtime. They cover atomic claims, concurrency bounds, lease expiry and late completion, error isolation, wrong answers, malformed grades, CLI validation/status/results, timeout handling, Docker cleanup construction, and authoritative Python grading.
 
 Docker-marked smoke tests exercise the actual containers, volumes, cleanup, and both benchmark adapters. They are opt-in with `HARNESS_DOCKER_TEST=1` and require `make smoke` to build their images. After `make images`, use the foreground mini commands above for live LLM acceptance testing.
 
-During implementation, Docker was unavailable on the development machine. Local tests were run; Docker smoke tests and paid mini-swe-agent runs were **not** run. No LLM accuracy claim is made. See `VALIDATION.txt` for the recorded test output.
+Validation on macOS/Apple Silicon: 23 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images built successfully. A live GPT-5 Mini attempt reached the provider but was blocked by an expired API key; it is not an accuracy result. See `VALIDATION.txt` for recorded evidence.
+
+The real-mini Docker tests run the actual mini CLI, config, and submission-checking wrapper, replacing only the model responses with known actions. They verify Linux dependency compatibility, execution, grading, and cleanup without API charges.
 
 ## Tradeoffs and next steps
 
@@ -163,3 +166,13 @@ SQLite keeps this submission easy to install and inspect; for multi-host workers
 To submit, push this source checkout to your GitHub repository and follow the assignment's upload instructions. No remote repository was created and nothing was sent to the hiring team.
 
 A separate compatibility check installed the exact pinned mini dependencies locally and ran mini v1.17 with an in-memory deterministic model. It produced a `Submitted` trajectory with two simulated calls and zero cost. This verifies CLI/config compatibility on macOS/Python 3.11; it does not verify the Docker images or a live provider.
+
+## Docker troubleshooting on macOS
+
+Leave at least 10 GB free for Docker installation, image layers, and temporary build data. The first attempt on this machine failed with read-only Docker storage and SQLite disk I/O errors when the host ran out of space. After freeing disk space and recreating only the disposable test VM storage, both Docker test suites passed.
+
+If your shell cannot find `docker`, add `$HOME/.docker/bin` to PATH or use `/Applications/Docker.app/Contents/Resources/bin/docker`. The Makefile accepts a `DOCKER` override for explicit CLI options.
+
+This machine also reported `Keychain Error (-67674)` while resolving public Docker Hub images. The successful builds used a temporary Docker config with empty `auths`, an explicit Desktop socket in `DOCKER_HOST`, and `docker --config PATH` for the public pulls/builds. The normal Docker credential store was not modified.
+
+`.env.example` provides local configuration placeholders. Copy it to the ignored `.env`, enter your own valid key, and export those values in the worker terminal before running the harness. `.env` is not automatically loaded by the CLI. Never include your key or raw agent logs in a submission. Live validation used the model name `openai/gpt-5-mini`; see its [official model documentation](https://developers.openai.com/api/docs/models/gpt-5-mini).

@@ -295,3 +295,36 @@ def test_mini_wrapper_checks_trajectory(tmp_path, monkeypatch, status, ok):
 def test_env_config_rejects_secret_assignment():
     with pytest.raises(ValueError, match='environment variable names'):
         CommandAgent({'command': ['agent'], 'env': ['API_KEY=secret']})
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(os.getenv('HARNESS_MINI_TEST') != '1', reason='Run make mini-smoke after building agent images')
+@pytest.mark.parametrize('benchmark,total', [('bash-operations', 5), ('python-tasks', 3)])
+def test_real_mini_with_deterministic_model(tmp_path, benchmark, total):
+    # The actual mini CLI and wrapper run inside each task's real agent image.
+    # Only model responses are replaced, so there are no keys or API charges.
+    fixture = (ROOT / 'tests/fixture_agent.py').read_text()
+    bootstrap = f'''
+import shlex, sys, yaml
+from pathlib import Path
+sys.path.insert(0, '/opt/harness')
+from run_mini import main
+cfg = yaml.safe_load(Path('/opt/harness/mini.yaml').read_text())
+command = 'python -c ' + shlex.quote({fixture!r}) + ' ' + shlex.quote(sys.argv[1])
+cfg['model'] = {{'model_class': 'minisweagent.models.test_models.DeterministicModel',
+    'model_name': 'deterministic', 'cost_per_call': 0,
+    'outputs': ['```bash\\n' + command + '\\n```',
+                '```bash\\necho COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT\\n```']}}
+Path('/tmp/mini-test.yaml').write_text(yaml.safe_dump(cfg))
+main('Solve the task in the workspace.', config='/tmp/mini-test.yaml')
+'''
+    # Escape literal braces because the command adapter expands placeholders.
+    command = bootstrap.replace('{', '{{').replace('}', '}}')
+    images = json.loads((ROOT / 'configs/agents/mini-swe-agent.json').read_text())['images']
+    store = Store(tmp_path / 'queue.db')
+    run_id = submit(store, tmp_path, benchmark,
+                    {'command': ['python', '-c', command, '{task_id}'], 'images': images})
+    work(store, concurrency=1, drain=True)
+    result = store.get(run_id)
+    assert result['passed'] == total, result
+    assert result['state'] == 'completed'
