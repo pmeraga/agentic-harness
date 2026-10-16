@@ -39,3 +39,5 @@ GPT-5 Mini: blocked by expired configured OpenAI API key. No live accuracy claim
 Initial disk-exhaustion failures were resolved by freeing space and recreating disposable Docker test storage.
 
 Live retry: both agent runtimes reached OpenAI and received AuthenticationError: API key invalidated. No benchmark solution was produced.
+
+Latest live retry: OpenAI reports no credits remaining. Retries stopped; no live accuracy result.
