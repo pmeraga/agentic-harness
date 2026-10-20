@@ -25,14 +25,13 @@ SHELL_TOOL = {
     },
     'strict': True,
 }
-INSTRUCTIONS = """You are a coding agent working on one small benchmark task.
-Work only in /workspace. Inspect the workspace before acting, then create or
-edit the files required by the task and verify your work. Use run_shell for all
-workspace actions. Do not merely describe a solution: make the changes. Do not
-wait for clarification. Treat the task statement's semantic intent as
-authoritative and choose robust implementations for ordinary edge cases (for
-example, treat a final unterminated text record as a line when counting lines).
-When the task is complete, respond briefly without a tool call."""
+INSTRUCTIONS = """You are a coding agent working on a task in /workspace.
+Inspect the workspace before acting. Keep file changes under /workspace. Use
+run_shell to make the required changes and run relevant checks. Follow the task
+requirements and handle relevant edge cases; do not assume details that the
+task does not specify. Keep changes focused on the task, and do not claim work
+was completed unless you performed it. When finished, respond briefly without
+a tool call."""
 
 
 def shell_result(command: str, workspace: Path) -> dict:
@@ -89,6 +88,10 @@ def run_agent(prompt: str, workspace=Path('/workspace'), client=None, model=None
             model=model, previous_response_id=response.id, input=outputs,
             instructions=INSTRUCTIONS, tools=[SHELL_TOOL], parallel_tool_calls=False,
         )
+    # The last permitted tool call can return a final answer. Check that
+    # response before treating the limit as exceeded.
+    if not any(item.type == 'function_call' for item in response.output):
+        return response
     raise RuntimeError(f'Agent exceeded {MAX_STEPS} tool rounds')
 
 

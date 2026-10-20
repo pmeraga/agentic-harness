@@ -1,4 +1,6 @@
 import importlib.util
+
+import pytest
 from pathlib import Path
 
 
@@ -51,3 +53,39 @@ def test_invalid_tool_arguments_are_returned_to_the_model(tmp_path):
     broken = type('BrokenCall', (), {'name': 'run_shell', 'call_id': 'call_1', 'arguments': '{}'})()
     output = agent.tool_output(broken, tmp_path)
     assert 'Invalid run_shell call' in output['output']
+
+
+def test_system_prompt_is_task_neutral():
+    # Benchmark-specific examples in the system prompt undermine the evaluation.
+    assert 'unterminated' not in agent.INSTRUCTIONS.lower()
+    assert 'counting lines' not in agent.INSTRUCTIONS.lower()
+    assert '/workspace' in agent.INSTRUCTIONS
+
+
+class RepeatingResponses:
+    def __init__(self, total_tool_calls):
+        self.calls = []
+        self.total_tool_calls = total_tool_calls
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        number = len(self.calls)
+        output = [Call()] if number <= self.total_tool_calls else []
+        return Response(f'response-{number}', output)
+
+
+def test_allows_final_response_after_last_tool_round(tmp_path):
+    client = Client()
+    client.responses = RepeatingResponses(agent.MAX_STEPS)
+    response = agent.run_agent('write a file', workspace=tmp_path, client=client, model='test-model')
+    assert response.id == f'response-{agent.MAX_STEPS + 1}'
+    assert (tmp_path / 'answer.txt').read_text() == 'hello'
+    assert len(client.responses.calls) == agent.MAX_STEPS + 1
+
+
+def test_rejects_extra_tool_round(tmp_path):
+    client = Client()
+    client.responses = RepeatingResponses(agent.MAX_STEPS + 1)
+    with pytest.raises(RuntimeError, match='exceeded'):
+        agent.run_agent('write a file', workspace=tmp_path, client=client, model='test-model')
+    assert len(client.responses.calls) == agent.MAX_STEPS + 1

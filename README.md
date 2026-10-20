@@ -1,8 +1,8 @@
 # Agentic Harness
 
-A CLI for running coding agents against benchmarks in Docker. It handles task setup, agent execution, grading, and result storage. Runs are queued in SQLite and processed by separate workers, so submitting a benchmark does not block on the model.
+A single-machine benchmark runner with separate agent and benchmark adapters. The CLI submits tasks to a SQLite-backed queue; workers execute setup, agent, and grading phases in Docker, then store per-task results. Agent implementations and benchmark configurations can change without changing the worker.
 
-The repo includes the two supplied benchmarks (`bash-operations`, 5 tasks; `python-tasks`, 3 tasks) and two agents: `mini-swe-agent` (also `agents/mini-swe-agent`, as in the assignment example) and a small, separate agent built on the OpenAI Responses API.
+Included benchmarks: **Bash Operations (5 tasks)** and **Python Tasks (3 tasks)**. Included agents: **mini-swe-agent** (also available as `agents/mini-swe-agent`) and an independent **OpenAI Responses API** coding agent.
 
 ## Setup
 
@@ -120,7 +120,7 @@ Build the agent into an image and write a config:
 
 Then run with `--agent /path/to/agent.json`. Use an `images` mapping instead of `image` when tasks need different runtimes. The built-in `mini-swe-agent` adapter checks for a submitted trajectory rather than trusting the CLI exit code alone.
 
-The optional `openai-responses` agent is in `docker/openai_responses_agent.py`. It runs a bounded function-calling loop: the model requests shell commands, the agent executes them inside its task container, and their output is sent back to the model. Limits are 12 tool rounds, 30 seconds per command, and 12 KB of command output. Its default model is `gpt-5.4-mini` and can be changed with `OPENAI_RESPONSES_MODEL`.
+The optional `openai-responses` agent is in `docker/openai_responses_agent.py`. It runs a bounded function-calling loop: the model requests shell commands, the agent executes them inside its task container, and their output is sent back to the model. Limits are 12 tool rounds, 30 seconds per command, and 12 KB of command output. Its system instructions are task-neutral and contain no examples drawn from benchmark tasks. Its default model is `gpt-5.4-mini` and can be changed with `OPENAI_RESPONSES_MODEL`.
 
 ## Tests and validation
 
@@ -130,7 +130,15 @@ make smoke        # Docker lifecycle with a deterministic fixture agent
 make mini-smoke   # real mini CLI with simulated model responses; no API cost
 ```
 
-The original validation records report 25 passing local tests, two Docker fixture cases, and two real-mini Docker cases. A regression test for the assignment-style agent path was added during review, bringing the current local suite to 26 passing tests. Each Docker pair covers both benchmarks, including all eight tasks. Live runs are also recorded as 8/8 for `mini-swe-agent` with GPT-5 Mini and 8/8 for `openai-responses` with GPT-5.4 Mini. These are results on the eight supplied tasks, not a general model-quality claim. Evidence: [`docs/validation.md`](docs/validation.md), [`LIVE_RESULTS.json`](LIVE_RESULTS.json), and [`RESPONSES_LIVE_RESULTS.json`](RESPONSES_LIVE_RESULTS.json).
+| Check | Recorded result | Command |
+| --- | --- | --- |
+| Local tests (after prompt-neutrality and step-limit fixes) | **29 passed**, 4 Docker cases excluded | `make test` |
+| Docker fixture lifecycle | 2 passed; covers both benchmarks | `make smoke` |
+| Real mini CLI, simulated model | 2 passed; covers both benchmarks | `make mini-smoke` |
+| Live mini-swe-agent / GPT-5 Mini | 8/8 tasks | API-backed run |
+| Live Responses agent / GPT-5.4 Mini | 8/8 tasks | API-backed run |
+
+The Docker and live outcomes above are **recorded development runs**, not fresh verification after the latest changes. The Responses agent's system prompt has since been made task-neutral, and its tool-round boundary behavior fixed; its recorded 8/8 score was obtained **before** those changes and should not be presented as a fresh live score. No API key is required for the three `make` commands. An 8/8 score on the supplied tasks establishes integration success, not general model reliability. See [`docs/validation.md`](docs/validation.md), [`LIVE_RESULTS.json`](LIVE_RESULTS.json), and [`RESPONSES_LIVE_RESULTS.json`](RESPONSES_LIVE_RESULTS.json) for evidence.
 
 ## Limits
 
