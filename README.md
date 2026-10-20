@@ -1,19 +1,12 @@
 # Agentic Harness
 
-A Python 3.11+ CLI that queues benchmark tasks, runs interchangeable agents in Docker, and stores status and results in SQLite. Both supplied benchmarks are supported without making their CLIs identical.
+A CLI for running coding agents against benchmarks in Docker. It handles task setup, agent execution, grading, and result storage. Runs are queued in SQLite and processed by separate workers, so submitting a benchmark does not block on the model.
 
-## What the assignment asks for
-
-1. Normalize benchmark tasks, create their environments, run an agent, grade solutions, and aggregate scores.
-2. Submit multiple runs without blocking; background workers pull work from a persistent queue with bounded concurrency.
-3. Persist results, expose active runs and completed results, and explain the architecture and setup.
-4. Demonstrate mini-swe-agent against Bash Operations and Python Tasks. Additional agents are optional.
-
-The provided CLI was a scaffold. Bash uses `task_id`/`problem_statement`, flag-based setup and grading, and exit 1 for a wrong answer. Python uses `id`/`prompt`, a positional task ID, and exit 0 even when grading fails. Adapters normalize these differences; the worker never branches on a benchmark name.
+The repo includes the two supplied benchmarks (`bash-operations`, 5 tasks; `python-tasks`, 3 tasks) and two agents: `mini-swe-agent` (also `agents/mini-swe-agent`, as in the assignment example) and a small, separate agent built on the OpenAI Responses API.
 
 ## Setup
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and [Docker Desktop](https://docs.docker.com/desktop/), and start Docker. From this source checkout:
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and a running [Docker Desktop](https://docs.docker.com/desktop/) installation.
 
 ```bash
 uv sync --frozen
@@ -21,98 +14,83 @@ uv run harness doctor
 make images
 ```
 
-`make images` builds a Python evaluator plus Python and Alpine runtimes for both agents. The Alpine image includes Python and Bash. The dataset's `alpine:latest` maps to the pinned Alpine 3.21 runtime; the Python task image maps to a Python 3.11 runtime. Image tags and full dependency pins are defined in `docker/`. The OpenAI Responses images reuse the already-pinned mini runtime dependency layer but run separate agent code. The first build requires internet and may take several minutes. Docker base images use version tags rather than immutable digests; pin digests for fully repeatable infrastructure.
+`make images` builds an evaluator image and Python/Alpine runtime images for each agent. The images install `mini-swe-agent==1.17.0` from pinned dependencies; no Git submodule is needed. The two Responses agent images reuse the mini images as a base but run different agent code.
 
-The ZIP omitted the mini-swe-agent Git submodule. This implementation uses the published `mini-swe-agent==1.17.0`, compatible with the starter CLI, inside the agent images. No host agent install or `git submodule` initialization is required. `docker/mini.yaml` comes from upstream tag v1.17.0 (commit `d9dfb18524ab1815fd4733bc60ae71ee0f2456a7`), with limits of 50 steps and approximately $1 per task. Its MIT license is included. The current upstream major version differs; upgrade the wrapper and config together.
-
-Provide a model name and its API key in the **worker's environment**. For example, select your provider/model and enter a key without placing it in shell history:
+Set the API credentials in the **worker's terminal**. The CLI does not automatically read `.env` files.
 
 ```bash
-export MSWEA_MODEL_NAME='provider/your-model'
-read -s OPENAI_API_KEY
-export OPENAI_API_KEY
+export OPENAI_API_KEY='your-api-key'
+export MSWEA_MODEL_NAME='openai/gpt-5-mini'  # for mini-swe-agent
+# Optional: export OPENAI_RESPONSES_MODEL='gpt-5.4-mini'
 ```
 
-Replace `OPENAI_API_KEY` with the matching provider variable if needed. The built-in agent forwards only `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `MSWEA_MODEL_NAME`. Values are not stored in the queue or passed in command arguments. Set these variables in each worker terminal. You do not need to run mini's interactive setup wizard.
+Keep real credentials out of Git and shell history. You can use your shell's secure input mechanism instead of typing a key directly into an `export` command. See `.env.example` for variable names.
 
-The optional `openai-responses` agent requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`. Set `OPENAI_RESPONSES_MODEL` to select another Responses API model. It has a compact, transparent loop: the model can request a bounded shell command, the agent runs it inside `/workspace`, and returns the command output for the next model turn.
+## Run a benchmark
 
-## Submit, execute, inspect
-
-Submission persists a run and prints only its ID. It does not require a running Docker daemon and does not launch an implicit background process.
+**Terminal 1: submit work.** The command prints a run ID and exits.
 
 ```bash
 uv run harness run --agent mini-swe-agent --benchmark bash-operations
 uv run harness run --agent mini-swe-agent --benchmark python-tasks --task_ids py-001,py-002
 uv run harness run --agent openai-responses --benchmark bash-operations
+```
 
-# Another terminal: run until interrupted; up to two task pipelines at once.
+**Terminal 2: start a worker.** The worker takes queued tasks, runs up to two concurrently, and stays alive until interrupted.
+
+```bash
 uv run harness worker --concurrency 2
+```
 
-# Replace RUN_ID with the ID printed by submission.
+**Inspect runs** from either terminal:
+
+```bash
 uv run harness list --active
 uv run harness status --run_id RUN_ID
 uv run harness results --run_id RUN_ID --format table
 uv run harness results --run_id RUN_ID --format json
 ```
 
-For a foreground demonstration:
+To run one task synchronously for a demo:
 
 ```bash
 uv run harness run --agent mini-swe-agent --benchmark bash-operations --task_ids bash-001 --wait
-uv run harness run --agent mini-swe-agent --benchmark python-tasks --task_ids py-001 --wait
 ```
 
-`--wait` submits and runs only that run's tasks in this process. A separate worker can also claim them safely. `worker --drain` exits when no queued work remains. Ctrl-C/SIGTERM stops new claims and lets in-flight tasks finish, subject to their phase timeouts.
-
-Defaults: two pipelines per worker process, one CPU, 2 GiB RAM, 256 PIDs, and a 600-second timeout **per phase**. Configure task limits at submission with `--cpus`, `--memory`, and `--timeout`. Multiple worker processes add their concurrency; there is no cluster-wide quota. Use one worker process for a single global machine limit.
-
-All commands accept `--data-dir PATH` **before** the subcommand, or `HARNESS_DATA_DIR`. Workers and clients must use the same local data directory. SQLite WAL is intended for one machine, not an NFS-mounted multi-host queue.
+Run `uv run harness --help` for options. `--timeout` (default: 600 seconds *per phase*), `--cpus` (default: 1), and `--memory` (default: 2g) set container limits. `--data-dir` is a top-level option; both worker and CLI must use the same directory (default: `.harness`). `worker --drain` runs queued tasks and exits. Each worker enforces its own concurrency limit; this is not a cluster-wide scheduler.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    CLI[CLI submission] --> Snapshot[Benchmark source snapshot]
-    CLI --> DB[(SQLite queue and results)]
-    DB --> Worker[Worker pool: atomic task claims]
-    Worker --> Setup[Setup container]
-    Setup --> Volume[(Task-only Docker volume)]
-    Worker --> Agent[Agent container]
-    Agent <--> Volume
-    Worker --> Grade[Fresh evaluator container]
-    Volume --> Grade
-    Grade --> DB
-    DB --> Queries[status / list / results]
+    CLI[CLI] -->|submit| DB[(SQLite queue)]
+    DB -->|claim task| W[Worker pool]
+    W --> S[Setup container]
+    S --> V[(Docker volume)]
+    W --> A[Agent container]
+    A <--> V
+    W --> E[Evaluator container]
+    V --> E
+    E -->|score| DB
+    DB -->|status / results| CLI
 ```
 
-- `adapters.py`: task model, benchmark/agent protocols, JSON command adapters, and strict grade validation.
-- `store.py`: SQLite queue, transactional claims, worker heartbeats, ownership checks, and metrics.
-- `worker.py`: bounded execution of setup → agent → evaluate, continued processing after task failures, and graceful stopping.
-- `runtime.py`: container lifecycle, timeouts, resource limits, logging, and cleanup.
-- `cli.py`: input validation, source snapshots, submission, worker entry point, and reporting.
+The implementation has four main parts:
 
-A run contains one queue row per task. `BEGIN IMMEDIATE` makes claim selection and update atomic across worker connections. Each running task renews a heartbeat every 10 seconds. Workers mark leases older than 90 seconds as errors. Ownership/state checks reject late completions. There is no automatic retry: a crashed worker may already have incurred an LLM charge. Submit a new run to retry deliberately. This is durable execution with explicit failure handling, not an exactly-once distributed execution guarantee.
+- `adapters.py` reads benchmark and agent configs. It normalizes task IDs, prompts, setup/evaluation commands, and grading results.
+- `runtime.py` launches isolated setup, agent, and grading containers. They share a task-specific Docker volume, not a container process.
+- `store.py` holds runs, task states, scores, and errors in SQLite. Atomic task claims prevent two workers from taking the same queued task.
+- `worker.py` runs tasks concurrently, updates heartbeats, and records results or execution errors. `cli.py` handles submission and queries.
 
-States: `queued` → `running` → `completed` or `error`. A wrong answer is a completed task with `passed=false`; setup, agent, timeout, and evaluator-protocol failures are errors. A run becomes terminal when every task is terminal, with state `error` if any task has an execution error. Accuracy and mean score divide by **all selected tasks**, so errors contribute zero. Results queried during execution are partial metrics; status/counts identify unfinished tasks.
+The benchmarks intentionally have different interfaces. Bash's evaluator may exit 1 for a wrong answer; Python's always exits 0 and reports the outcome in JSON. Their `harness.json` files describe these differences so the worker doesn't need benchmark-specific code.
 
-The run snapshots the benchmark directory and the agent config when submitted. Subsequent source edits do not change queued work. Runtime images are referenced by tag, so avoid changing them while jobs are queued; use image digests in custom configurations for immutable runs.
+At submission, the harness snapshots the benchmark source and agent configuration. Each task then follows **setup → agent → evaluate**. Setup and grading mount the benchmark snapshot read-only, without network access. Only the agent container receives allowed API environment variables and network access. Agent containers cannot mount the benchmark source or Docker socket through this harness. The evaluator's Python tests run in a clean directory so the agent cannot pass by editing tests in its workspace.
 
-## Isolation and grading
-
-Every task gets a unique named volume. The agent container sees only that workspace, its installed code, and allowlisted credentials; it does not receive benchmark source, the host project, the database, or the Docker socket. Setup and evaluation run in separate containers with the benchmark snapshot mounted read-only and network disabled. All containers drop Linux capabilities, disallow privilege escalation, and apply CPU, RAM, and PID limits. Agent networking remains enabled for the LLM API.
-
-The Python grader was strengthened: it copies the solution into a fresh temporary directory, recreates authoritative tests from the dataset, and ignores agent-writable tests and pytest configuration. Evaluation has no API credentials. These containers are a practical take-home isolation boundary, not a hardened multi-tenant security service. For hostile workloads, use stronger sandboxes, non-root users, egress controls, disk quotas, and separate control/evaluation hosts.
-
-mini v1's CLI can catch an exception and still exit 0. `docker/run_mini.py` checks the saved trajectory's `Submitted` status and turns other outcomes into execution errors. A model/API failure therefore cannot silently look like a normal wrong answer.
-
-Containers and volumes are removed on normal completion and handled exceptions/timeouts. `--keep-workspaces` retains task volumes named `harness-RUN_ID-JOB_ID`; this also retains `trajectory.json` for inspection. Logs remain under `.harness/runs/RUN_ID/JOB_ID/`; normalized grades are in SQLite. Exception text stored in the DB redacts known allowlisted secret values. Raw local logs/trajectories can contain model output or sensitive diagnostics; keep the ignored data directory private. There is no log-size or volume-size quota yet.
-
-SIGKILL/host failure can bypass cleanup and leave containers/volumes. Expired jobs become errors when a worker next polls; inspect and remove leftover `harness-*` Docker resources before resubmitting. Status queries do not mutate queue state. Workers retain no long-lived in-memory queue, so queued jobs survive process restarts.
+Results and errors are stored in `.harness/harness.db`; per-phase logs live under `.harness/runs/`. Resources are cleaned up after normal completion or timeouts. A worker that disappears leaves a job in `running` until another worker expires its lease and marks it as an error. The system does **not** silently retry paid LLM calls.
 
 ## Add a benchmark
 
-Create a directory with its source, dataset, and `harness.json`:
+Create a directory with a dataset, setup/evaluation scripts, and `harness.json`. For example:
 
 ```json
 {
@@ -126,62 +104,34 @@ Create a directory with its source, dataset, and `harness.json`:
 }
 ```
 
-Each dataset row must supply the configured ID/prompt fields and `docker_image`. Command placeholders are `{benchmark}`, `{workspace}`, and `{task_id}`. Commands are argument arrays, executed without a host shell. Literal braces in arguments must be doubled. The evaluator must print a single JSON object with matching `task_id`, boolean `passed`, finite `score` in [0,1], and optional `details`.
+Each dataset entry needs an ID, a prompt, and a `docker_image`. Grading must print JSON with `task_id`, boolean `passed`, and numeric `score` from 0 to 1. Point `--benchmark` at the directory. The shipped adapter handles command-driven benchmarks; more complex benchmarks would need an additional adapter implementing the `Benchmark` protocol.
 
-Pass `--benchmark /path/to/directory`. For non-Python dependencies or different tools, build an appropriate `evaluator_image`. For richer dataset formats or scoring protocols, implement the `Benchmark` protocol and extend adapter selection; no worker lifecycle rewrite is needed. The shipped JSON adapter supports command-oriented benchmarks, not every benchmark format automatically.
+## Add an agent
 
-## Additional OpenAI Responses agent
-
-The optional assignment extension is implemented as `openai-responses`, an independent tool-use coding agent. It uses the official Responses API function-calling flow: model-requested `run_shell` calls are executed only inside the already-isolated agent container, and compact command output is returned to the model. It has a 12-round limit, a 30-second limit per command, sequential tool calls, and a 12 KB output cap. The provider key is forwarded only into the agent container and is neither persisted nor exposed to setup/evaluation containers.
-
-Build images with `make images`, export `OPENAI_API_KEY`, then submit with the command above. `OPENAI_RESPONSES_MODEL=gpt-5.4-mini` is the default. This agent shares neither a process nor a command/configuration with mini-swe-agent; only its dependency base layer is reused to avoid duplicate packages.
-
-## Add another agent
-
-Build an image containing the agent and provide a JSON config:
+Build the agent into an image and write a config:
 
 ```json
 {
-  "image": "my-private-agent:version",
-  "command": ["my-agent", "--task", "{prompt}", "--workspace", "{workspace}"],
+  "image": "my-agent:1",
+  "command": ["my-agent", "--prompt", "{prompt}", "--workspace", "{workspace}"],
   "env": ["MY_AGENT_API_KEY"]
 }
 ```
 
-Pass `--agent /path/to/agent.json`, or a directory containing `harness.json`. Agent placeholders are `{prompt}`, `{task_id}`, and `{workspace}`. Use `images` instead of `image` to map each dataset image to a compatible agent runtime (as mini does). Agent source stays in its image and needs no benchmark fork. The agent must work in `/workspace`, terminate without prompts, and return nonzero for errors. For advanced integrations, implement the `Agent` protocol and extend adapter selection.
+Then run with `--agent /path/to/agent.json`. Use an `images` mapping instead of `image` when tasks need different runtimes. The built-in `mini-swe-agent` adapter checks for a submitted trajectory rather than trusting the CLI exit code alone.
 
-The deterministic fixture in `tests/fixture_agent.py` contains known solutions solely to test infrastructure. It is not an additional evaluated AI agent or evidence of LLM performance. Claude Code is not included because the optional extension is fulfilled by the independently implemented OpenAI Responses agent.
+The optional `openai-responses` agent is in `docker/openai_responses_agent.py`. It runs a bounded function-calling loop: the model requests shell commands, the agent executes them inside its task container, and their output is sent back to the model. Limits are 12 tool rounds, 30 seconds per command, and 12 KB of command output. Its default model is `gpt-5.4-mini` and can be changed with `OPENAI_RESPONSES_MODEL`.
 
-## Validation
+## Tests and validation
 
 ```bash
-make test          # no Docker, keys, or API charges
-make smoke         # real Docker lifecycle, known fixture solutions, no API charges
-make mini-smoke    # actual mini CLI in both images, simulated model responses, no API charges
+make test         # unit and local integration tests, no Docker or API key
+make smoke        # Docker lifecycle with a deterministic fixture agent
+make mini-smoke   # real mini CLI with simulated model responses; no API cost
 ```
 
-Unit/integration tests run all eight real benchmark setup/evaluation flows through the queue using a test-only local runtime. They cover atomic claims, concurrency bounds, lease expiry and late completion, error isolation, wrong answers, malformed grades, CLI validation/status/results, timeout handling, Docker cleanup construction, and authoritative Python grading.
+The original validation records report 25 passing local tests, two Docker fixture cases, and two real-mini Docker cases. A regression test for the assignment-style agent path was added during review, bringing the current local suite to 26 passing tests. Each Docker pair covers both benchmarks, including all eight tasks. Live runs are also recorded as 8/8 for `mini-swe-agent` with GPT-5 Mini and 8/8 for `openai-responses` with GPT-5.4 Mini. These are results on the eight supplied tasks, not a general model-quality claim. Evidence: [`docs/validation.md`](docs/validation.md), [`LIVE_RESULTS.json`](LIVE_RESULTS.json), and [`RESPONSES_LIVE_RESULTS.json`](RESPONSES_LIVE_RESULTS.json).
 
-Docker-marked smoke tests exercise the actual containers, volumes, cleanup, and both benchmark adapters. They are opt-in with `HARNESS_DOCKER_TEST=1` and require `make smoke` to build their images. After `make images`, use the foreground mini commands above for live LLM acceptance testing.
+## Limits
 
-Validation on macOS/Apple Silicon: 25 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images and both OpenAI Responses runtime images built successfully; the Responses agent's tool loop is covered by two deterministic local tests and imports successfully in both agent containers. Live mini-swe-agent validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost; see `LIVE_RESULTS.json`. The new OpenAI Responses agent, using `gpt-5.4-mini`, also passed Bash 5/5 and Python 3/3 in separate queued runs; see `RESPONSES_LIVE_RESULTS.json`. These are validation samples on the supplied toy tasks, not broader model-performance claims. See `VALIDATION.txt` for recorded evidence.
-
-The real-mini Docker tests run the actual mini CLI, config, and submission-checking wrapper, replacing only the model responses with known actions. They verify Linux dependency compatibility, execution, grading, and cleanup without API charges.
-
-## Tradeoffs and next steps
-
-SQLite keeps this submission easy to install and inspect; for multi-host workers, replace the queue/store with PostgreSQL and row-level claims or a dedicated queue while keeping adapter/runtime interfaces. Automatic retries, cancellation, durable centralized logs, per-user quotas, scheduler fairness, image provenance, cost aggregation, and web UI are deliberately outside this implementation. Heartbeat expiry requires a live polling worker. Queue retention and leftover container cleanup are operational tasks, not automated garbage collection.
-
-To submit, push this source checkout to your GitHub repository and follow the assignment's upload instructions. No remote repository was created and nothing was sent to the hiring team.
-
-A separate compatibility check installed the exact pinned mini dependencies locally and ran mini v1.17 with an in-memory deterministic model. It produced a `Submitted` trajectory with two simulated calls and zero cost. This verifies CLI/config compatibility on macOS/Python 3.11; it does not verify the Docker images or a live provider.
-
-## Docker troubleshooting on macOS
-
-Leave at least 10 GB free for Docker installation, image layers, and temporary build data. The first attempt on this machine failed with read-only Docker storage and SQLite disk I/O errors when the host ran out of space. After freeing disk space and recreating only the disposable test VM storage, both Docker test suites passed.
-
-If your shell cannot find `docker`, add `$HOME/.docker/bin` to PATH or use `/Applications/Docker.app/Contents/Resources/bin/docker`. The Makefile accepts a `DOCKER` override for explicit CLI options.
-
-This machine also reported `Keychain Error (-67674)` while resolving public Docker Hub images. The successful builds used a temporary Docker config with empty `auths`, an explicit Desktop socket in `DOCKER_HOST`, and `docker --config PATH` for the public pulls/builds. The normal Docker credential store was not modified.
-
-`.env.example` provides local configuration placeholders. Copy it to the ignored `.env`, enter your own valid key, and export those values in the worker terminal before running the harness. `.env` is not automatically loaded by the CLI. Never include your key or raw agent logs in a submission. The additional-agent live validation used [`gpt-5.4-mini`](https://developers.openai.com/api/docs/models/gpt-5.4-mini).
+This is a single-machine harness, not a multi-tenant production service. SQLite isn't intended as a shared queue across hosts. Image tags are not pinned to digests, so image rebuilds can change the environment. There is no cancellation, global concurrency limit, automatic job retry, container/disk quota, or crash-recovery cleanup process. Raw logs can contain sensitive diagnostics; don't commit `.harness` or agent trajectories. Stronger isolation for untrusted workloads would include non-root users, restricted agent egress, and separate execution hosts.

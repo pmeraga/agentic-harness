@@ -328,3 +328,15 @@ main('Solve the task in the workspace.', config='/tmp/mini-test.yaml')
     result = store.get(run_id)
     assert result['passed'] == total, result
     assert result['state'] == 'completed'
+
+
+def test_assignment_example_agent_path(tmp_path):
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        '--data-dir', str(tmp_path / 'data'), 'run',
+        '--agent', 'agents/mini-swe-agent',
+        '--benchmark', 'bash-operations',
+        '--task_ids', 'bash-001',
+    ])
+    assert result.exit_code == 0, result.output
+    assert Store(tmp_path / 'data' / 'harness.db').get(result.output.strip())['total'] == 1

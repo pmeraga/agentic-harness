@@ -70,9 +70,9 @@ def run(data, agent, benchmark, task_ids, wait, concurrency, timeout, cpus, memo
             raise ValueError(f'Unknown task IDs: {sorted(unknown)}')
         tasks = [t for t in tasks if t.id in requested]
     agent_path = Path(agent)
-    if agent == 'mini-swe-agent':
+    if agent in ('mini-swe-agent', 'agents/mini-swe-agent'):
         agent_path = ROOT / 'configs' / 'agents' / 'mini-swe-agent.json'
-    elif agent == 'openai-responses':
+    elif agent in ('openai-responses', 'agents/openai-responses'):
         agent_path = ROOT / 'configs' / 'agents' / 'openai-responses.json'
     elif agent_path.is_dir():
         agent_path /= 'harness.json'
@@ -86,7 +86,7 @@ def run(data, agent, benchmark, task_ids, wait, concurrency, timeout, cpus, memo
     if artifacts.is_relative_to(adapter.root):
         raise ValueError('Data directory must be outside the benchmark source directory')
     # Copy source at submission time: queued work doesn't silently change when edited.
-    shutil.copytree(adapter.root, snapshot, ignore=shutil.ignore_patterns('__pycache__', '.git', '.venv'))
+    shutil.copytree(adapter.root, snapshot, ignore=shutil.ignore_patterns('__pycache__', '.git', '.venv', '.env', '.harness', '.pytest_cache'))
     config = {'benchmark': str(snapshot), 'agent': agent_config, 'artifacts': str(artifacts),
               'timeout': timeout, 'cpus': cpus, 'memory': memory, 'keep_workspaces': keep_workspaces}
     from dataclasses import asdict

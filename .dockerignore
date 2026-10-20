@@ -1,6 +1,9 @@
 .git
 .venv
 .harness
+.env
+.env.*
 __pycache__
 .pytest_cache
 *.pyc
+*.zip
