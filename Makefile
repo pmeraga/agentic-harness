@@ -7,6 +7,8 @@ images:
 	$(DOCKER) build -t agentic-harness-evaluator:1 -f docker/Dockerfile.evaluator docker
 	$(DOCKER) build -t agentic-harness-mini-python:1 -f docker/Dockerfile.mini-python docker
 	$(DOCKER) build -t agentic-harness-mini-alpine:1 -f docker/Dockerfile.mini-alpine docker
+	$(DOCKER) build -t agentic-harness-responses-python:1 -f docker/Dockerfile.responses-python docker
+	$(DOCKER) build -t agentic-harness-responses-alpine:1 -f docker/Dockerfile.responses-alpine docker
 test:
 	uv run pytest -m 'not docker'
 smoke:

@@ -21,7 +21,7 @@ uv run harness doctor
 make images
 ```
 
-`make images` builds a Python evaluator with pytest, a Python agent runtime, and an Alpine agent runtime. The Alpine image includes Python and Bash so mini can run inside it. The dataset's `alpine:latest` maps to the pinned Alpine 3.21 runtime; the Python task image maps to a Python 3.11 runtime. Image tags and full dependency pins are defined in `docker/`. The first build requires internet and may take several minutes. Docker base images use version tags rather than immutable digests; pin digests for fully repeatable infrastructure.
+`make images` builds a Python evaluator plus Python and Alpine runtimes for both agents. The Alpine image includes Python and Bash. The dataset's `alpine:latest` maps to the pinned Alpine 3.21 runtime; the Python task image maps to a Python 3.11 runtime. Image tags and full dependency pins are defined in `docker/`. The OpenAI Responses images reuse the already-pinned mini runtime dependency layer but run separate agent code. The first build requires internet and may take several minutes. Docker base images use version tags rather than immutable digests; pin digests for fully repeatable infrastructure.
 
 The ZIP omitted the mini-swe-agent Git submodule. This implementation uses the published `mini-swe-agent==1.17.0`, compatible with the starter CLI, inside the agent images. No host agent install or `git submodule` initialization is required. `docker/mini.yaml` comes from upstream tag v1.17.0 (commit `d9dfb18524ab1815fd4733bc60ae71ee0f2456a7`), with limits of 50 steps and approximately $1 per task. Its MIT license is included. The current upstream major version differs; upgrade the wrapper and config together.
 
@@ -35,6 +35,8 @@ export OPENAI_API_KEY
 
 Replace `OPENAI_API_KEY` with the matching provider variable if needed. The built-in agent forwards only `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `MSWEA_MODEL_NAME`. Values are not stored in the queue or passed in command arguments. Set these variables in each worker terminal. You do not need to run mini's interactive setup wizard.
 
+The optional `openai-responses` agent requires `OPENAI_API_KEY` and defaults to `gpt-5-mini`. Set `OPENAI_RESPONSES_MODEL` to select another Responses API model. It has a compact, transparent loop: the model can request a bounded shell command, the agent runs it inside `/workspace`, and returns the command output for the next model turn.
+
 ## Submit, execute, inspect
 
 Submission persists a run and prints only its ID. It does not require a running Docker daemon and does not launch an implicit background process.
@@ -42,6 +44,7 @@ Submission persists a run and prints only its ID. It does not require a running 
 ```bash
 uv run harness run --agent mini-swe-agent --benchmark bash-operations
 uv run harness run --agent mini-swe-agent --benchmark python-tasks --task_ids py-001,py-002
+uv run harness run --agent openai-responses --benchmark bash-operations
 
 # Another terminal: run until interrupted; up to two task pipelines at once.
 uv run harness worker --concurrency 2
@@ -127,7 +130,13 @@ Each dataset row must supply the configured ID/prompt fields and `docker_image`.
 
 Pass `--benchmark /path/to/directory`. For non-Python dependencies or different tools, build an appropriate `evaluator_image`. For richer dataset formats or scoring protocols, implement the `Benchmark` protocol and extend adapter selection; no worker lifecycle rewrite is needed. The shipped JSON adapter supports command-oriented benchmarks, not every benchmark format automatically.
 
-## Add an agent
+## Additional OpenAI Responses agent
+
+The optional assignment extension is implemented as `openai-responses`, an independent tool-use coding agent. It uses the official Responses API function-calling flow: model-requested `run_shell` calls are executed only inside the already-isolated agent container, and compact command output is returned to the model. It has a 12-round limit, a 30-second limit per command, sequential tool calls, and a 12 KB output cap. The provider key is forwarded only into the agent container and is neither persisted nor exposed to setup/evaluation containers.
+
+Build images with `make images`, export `OPENAI_API_KEY`, then submit with the command above. `OPENAI_RESPONSES_MODEL=gpt-5-mini` is the default. This agent shares neither a process nor a command/configuration with mini-swe-agent; only its dependency base layer is reused to avoid duplicate packages.
+
+## Add another agent
 
 Build an image containing the agent and provide a JSON config:
 
@@ -141,7 +150,7 @@ Build an image containing the agent and provide a JSON config:
 
 Pass `--agent /path/to/agent.json`, or a directory containing `harness.json`. Agent placeholders are `{prompt}`, `{task_id}`, and `{workspace}`. Use `images` instead of `image` to map each dataset image to a compatible agent runtime (as mini does). Agent source stays in its image and needs no benchmark fork. The agent must work in `/workspace`, terminate without prompts, and return nonzero for errors. For advanced integrations, implement the `Agent` protocol and extend adapter selection.
 
-The deterministic fixture in `tests/fixture_agent.py` contains known solutions solely to test infrastructure. It is not an additional evaluated AI agent or evidence of LLM performance. Claude Code is not included; the optional extension was left out to keep the required design small and explainable.
+The deterministic fixture in `tests/fixture_agent.py` contains known solutions solely to test infrastructure. It is not an additional evaluated AI agent or evidence of LLM performance. Claude Code is not included because the optional extension is fulfilled by the independently implemented OpenAI Responses agent.
 
 ## Validation
 
@@ -155,7 +164,7 @@ Unit/integration tests run all eight real benchmark setup/evaluation flows throu
 
 Docker-marked smoke tests exercise the actual containers, volumes, cleanup, and both benchmark adapters. They are opt-in with `HARNESS_DOCKER_TEST=1` and require `make smoke` to build their images. After `make images`, use the foreground mini commands above for live LLM acceptance testing.
 
-Validation on macOS/Apple Silicon: 23 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images built successfully. Live GPT-5 Mini validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost. See `LIVE_RESULTS.json` for per-task grades, run IDs, timings, and usage. Earlier authentication/credit failures were resolved before these successful runs. This is one validation sample on the supplied toy tasks, not a broader model-performance claim. See `VALIDATION.txt` for recorded evidence.
+Validation on macOS/Apple Silicon: 25 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images and both OpenAI Responses runtime images built successfully; the Responses agent's tool loop is covered by two deterministic local tests and imports successfully in both agent containers. Live GPT-5 Mini validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost. See `LIVE_RESULTS.json` for per-task grades, run IDs, timings, and usage. Earlier authentication/credit failures were resolved before these successful runs. This is one validation sample on the supplied toy tasks, not a broader model-performance claim. See `VALIDATION.txt` for recorded evidence.
 
 The real-mini Docker tests run the actual mini CLI, config, and submission-checking wrapper, replacing only the model responses with known actions. They verify Linux dependency compatibility, execution, grading, and cleanup without API charges.
 

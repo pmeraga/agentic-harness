@@ -41,7 +41,7 @@ def checked(fn):
 
 
 @cli.command()
-@click.option('--agent', required=True, help='mini-swe-agent, directory containing harness.json, or JSON config.')
+@click.option('--agent', required=True, help='mini-swe-agent, openai-responses, directory containing harness.json, or JSON config.')
 @click.option('--benchmark', required=True, help='Bundled name or directory containing harness.json.')
 @click.option('--task_ids', '--task-ids', default=None, help='Comma-separated task IDs; default all.')
 @click.option('--wait', is_flag=True, help='Execute this run in the foreground after submission.')
@@ -72,6 +72,8 @@ def run(data, agent, benchmark, task_ids, wait, concurrency, timeout, cpus, memo
     agent_path = Path(agent)
     if agent == 'mini-swe-agent':
         agent_path = ROOT / 'configs' / 'agents' / 'mini-swe-agent.json'
+    elif agent == 'openai-responses':
+        agent_path = ROOT / 'configs' / 'agents' / 'openai-responses.json'
     elif agent_path.is_dir():
         agent_path /= 'harness.json'
     agent_config = read_config(agent_path)

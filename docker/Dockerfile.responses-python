@@ -1,0 +1,2 @@
+FROM agentic-harness-mini-python:1
+COPY openai_responses_agent.py /opt/harness/openai_responses_agent.py

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python",
+    "/opt/harness/openai_responses_agent.py",
+    "{prompt}"
+  ],
+  "images": {
+    "alpine:latest": "agentic-harness-responses-alpine:1",
+    "python:3.11-slim": "agentic-harness-responses-python:1"
+  },
+  "env": [
+    "OPENAI_API_KEY",
+    "OPENAI_RESPONSES_MODEL"
+  ]
+}
