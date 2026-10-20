@@ -35,7 +35,7 @@ export OPENAI_API_KEY
 
 Replace `OPENAI_API_KEY` with the matching provider variable if needed. The built-in agent forwards only `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, and `MSWEA_MODEL_NAME`. Values are not stored in the queue or passed in command arguments. Set these variables in each worker terminal. You do not need to run mini's interactive setup wizard.
 
-The optional `openai-responses` agent requires `OPENAI_API_KEY` and defaults to `gpt-5-mini`. Set `OPENAI_RESPONSES_MODEL` to select another Responses API model. It has a compact, transparent loop: the model can request a bounded shell command, the agent runs it inside `/workspace`, and returns the command output for the next model turn.
+The optional `openai-responses` agent requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`. Set `OPENAI_RESPONSES_MODEL` to select another Responses API model. It has a compact, transparent loop: the model can request a bounded shell command, the agent runs it inside `/workspace`, and returns the command output for the next model turn.
 
 ## Submit, execute, inspect
 
@@ -134,7 +134,7 @@ Pass `--benchmark /path/to/directory`. For non-Python dependencies or different 
 
 The optional assignment extension is implemented as `openai-responses`, an independent tool-use coding agent. It uses the official Responses API function-calling flow: model-requested `run_shell` calls are executed only inside the already-isolated agent container, and compact command output is returned to the model. It has a 12-round limit, a 30-second limit per command, sequential tool calls, and a 12 KB output cap. The provider key is forwarded only into the agent container and is neither persisted nor exposed to setup/evaluation containers.
 
-Build images with `make images`, export `OPENAI_API_KEY`, then submit with the command above. `OPENAI_RESPONSES_MODEL=gpt-5-mini` is the default. This agent shares neither a process nor a command/configuration with mini-swe-agent; only its dependency base layer is reused to avoid duplicate packages.
+Build images with `make images`, export `OPENAI_API_KEY`, then submit with the command above. `OPENAI_RESPONSES_MODEL=gpt-5.4-mini` is the default. This agent shares neither a process nor a command/configuration with mini-swe-agent; only its dependency base layer is reused to avoid duplicate packages.
 
 ## Add another agent
 
@@ -164,7 +164,7 @@ Unit/integration tests run all eight real benchmark setup/evaluation flows throu
 
 Docker-marked smoke tests exercise the actual containers, volumes, cleanup, and both benchmark adapters. They are opt-in with `HARNESS_DOCKER_TEST=1` and require `make smoke` to build their images. After `make images`, use the foreground mini commands above for live LLM acceptance testing.
 
-Validation on macOS/Apple Silicon: 25 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images and both OpenAI Responses runtime images built successfully; the Responses agent's tool loop is covered by two deterministic local tests and imports successfully in both agent containers. Live GPT-5 Mini validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost. See `LIVE_RESULTS.json` for per-task grades, run IDs, timings, and usage. Earlier authentication/credit failures were resolved before these successful runs. This is one validation sample on the supplied toy tasks, not a broader model-performance claim. See `VALIDATION.txt` for recorded evidence.
+Validation on macOS/Apple Silicon: 25 local tests, two fixture Docker tests, and two real-mini Docker tests passed. Each pair of Docker tests runs all eight supplied tasks. Both mini runtime images and both OpenAI Responses runtime images built successfully; the Responses agent's tool loop is covered by two deterministic local tests and imports successfully in both agent containers. Live mini-swe-agent validation also passed all eight tasks: Bash 5/5 and Python 3/3, across four queued runs. mini-swe-agent reported 27 API calls and $0.058373 total model cost; see `LIVE_RESULTS.json`. The new OpenAI Responses agent, using `gpt-5.4-mini`, also passed Bash 5/5 and Python 3/3 in separate queued runs; see `RESPONSES_LIVE_RESULTS.json`. These are validation samples on the supplied toy tasks, not broader model-performance claims. See `VALIDATION.txt` for recorded evidence.
 
 The real-mini Docker tests run the actual mini CLI, config, and submission-checking wrapper, replacing only the model responses with known actions. They verify Linux dependency compatibility, execution, grading, and cleanup without API charges.
 
@@ -184,4 +184,4 @@ If your shell cannot find `docker`, add `$HOME/.docker/bin` to PATH or use `/App
 
 This machine also reported `Keychain Error (-67674)` while resolving public Docker Hub images. The successful builds used a temporary Docker config with empty `auths`, an explicit Desktop socket in `DOCKER_HOST`, and `docker --config PATH` for the public pulls/builds. The normal Docker credential store was not modified.
 
-`.env.example` provides local configuration placeholders. Copy it to the ignored `.env`, enter your own valid key, and export those values in the worker terminal before running the harness. `.env` is not automatically loaded by the CLI. Never include your key or raw agent logs in a submission. Live validation used the model name `openai/gpt-5-mini`; see its [official model documentation](https://developers.openai.com/api/docs/models/gpt-5-mini).
+`.env.example` provides local configuration placeholders. Copy it to the ignored `.env`, enter your own valid key, and export those values in the worker terminal before running the harness. `.env` is not automatically loaded by the CLI. Never include your key or raw agent logs in a submission. The additional-agent live validation used [`gpt-5.4-mini`](https://developers.openai.com/api/docs/models/gpt-5.4-mini).

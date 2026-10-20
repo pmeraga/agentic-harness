@@ -29,8 +29,10 @@ INSTRUCTIONS = """You are a coding agent working on one small benchmark task.
 Work only in /workspace. Inspect the workspace before acting, then create or
 edit the files required by the task and verify your work. Use run_shell for all
 workspace actions. Do not merely describe a solution: make the changes. Do not
-wait for clarification. When the task is complete, respond briefly without a
-tool call."""
+wait for clarification. Treat the task statement's semantic intent as
+authoritative and choose robust implementations for ordinary edge cases (for
+example, treat a final unterminated text record as a line when counting lines).
+When the task is complete, respond briefly without a tool call."""
 
 
 def shell_result(command: str, workspace: Path) -> dict:
@@ -73,7 +75,7 @@ def run_agent(prompt: str, workspace=Path('/workspace'), client=None, model=None
         # the provider SDK installed on the host.
         from openai import OpenAI
         client = OpenAI()
-    model = model or os.environ.get('OPENAI_RESPONSES_MODEL', 'gpt-5-mini')
+    model = model or os.environ.get('OPENAI_RESPONSES_MODEL', 'gpt-5.4-mini')
     response = client.responses.create(
         model=model, input=prompt, instructions=INSTRUCTIONS, tools=[SHELL_TOOL],
         parallel_tool_calls=False,

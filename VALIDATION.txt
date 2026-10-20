@@ -50,3 +50,10 @@ All eight trajectories: Submitted
 API calls reported by mini: 27
 Model cost reported by mini: $0.05837265
 Details: LIVE_RESULTS.json
+
+OPENAI RESPONSES AGENT LIVE VALIDATION
+Model: gpt-5.4-mini
+Bash: 5/5 passed (run 5ea57ae9c1c6422698a09a637990f789)
+Python: 3/3 passed (run b0c0b771819446bd92ab4feb3b7c388b)
+Both runs completed without infrastructure errors.
+Details: RESPONSES_LIVE_RESULTS.json

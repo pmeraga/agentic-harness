@@ -1,0 +1,26 @@
+{
+  "agent": "openai-responses",
+  "model": "gpt-5.4-mini",
+  "validated_at": "2026-10-20",
+  "runs": [
+    {
+      "run_id": "5ea57ae9c1c6422698a09a637990f789",
+      "benchmark": "bash-operations",
+      "state": "completed",
+      "passed": 5,
+      "total": 5,
+      "accuracy": 1.0,
+      "task_ids": ["bash-001", "bash-002", "bash-003", "bash-004", "bash-005"]
+    },
+    {
+      "run_id": "b0c0b771819446bd92ab4feb3b7c388b",
+      "benchmark": "python-tasks",
+      "state": "completed",
+      "passed": 3,
+      "total": 3,
+      "accuracy": 1.0,
+      "task_ids": ["py-001", "py-002", "py-003"]
+    }
+  ],
+  "note": "Usage and cost are not exposed by this lightweight agent wrapper."
+}
