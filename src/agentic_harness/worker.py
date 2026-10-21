@@ -4,7 +4,7 @@ from pathlib import Path
 import threading
 import uuid
 
-from .adapters import CommandAgent, CommandBenchmark, Task
+from .adapters import CommandAgent, load_benchmark, Task
 from .runtime import DockerRuntime
 
 
@@ -20,7 +20,7 @@ def perform(store, job, runtime_factory=DockerRuntime):
     pulse.start()
     directory = Path(job['config']['artifacts']) / str(job['id'])
     try:
-        benchmark = CommandBenchmark(Path(job['config']['benchmark']))
+        benchmark = load_benchmark(Path(job['config']['benchmark']))
         agent = CommandAgent(job['config']['agent'])
         task = Task(**job['task'])
         with runtime_factory(job, directory) as runtime:

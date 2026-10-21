@@ -2,7 +2,7 @@
 
 A single-machine benchmark runner with separate agent and benchmark adapters. The CLI submits tasks to a SQLite-backed queue; workers execute setup, agent, and grading phases in Docker, then store per-task results. Agent implementations and benchmark configurations can change without changing the worker.
 
-Included benchmarks: **Bash Operations (5 tasks)** and **Python Tasks (3 tasks)**. Included agents: **mini-swe-agent** (also available as `agents/mini-swe-agent`) and an independent **OpenAI Responses API** coding agent.
+Included benchmarks: **Bash Operations (5 tasks)**, **Python Tasks (3 tasks)**, and a small **JSONL example (2 tasks)** that demonstrates a second benchmark adapter. Included agents: **mini-swe-agent** (also available as `agents/mini-swe-agent`) and an independent **OpenAI Responses API** coding agent.
 
 ## Setup
 
@@ -77,7 +77,7 @@ flowchart LR
 
 The implementation has four main parts:
 
-- `adapters.py` reads benchmark and agent configs. It normalizes task IDs, prompts, setup/evaluation commands, and grading results.
+- `adapters.py` loads benchmark adapters from built-in registrations or installed Python package entry points. It normalizes task IDs, prompts, setup/evaluation commands, and grading results.
 - `runtime.py` launches isolated setup, agent, and grading containers. They share a task-specific Docker volume, not a container process.
 - `store.py` holds runs, task states, scores, and errors in SQLite. Atomic task claims prevent two workers from taking the same queued task.
 - `worker.py` runs tasks concurrently, updates heartbeats, and records results or execution errors. `cli.py` handles submission and queries.
@@ -104,7 +104,18 @@ Create a directory with a dataset, setup/evaluation scripts, and `harness.json`.
 }
 ```
 
-Each dataset entry needs an ID, a prompt, and a `docker_image`. Grading must print JSON with `task_id`, boolean `passed`, and numeric `score` from 0 to 1. Point `--benchmark` at the directory. The shipped adapter handles command-driven benchmarks; more complex benchmarks would need an additional adapter implementing the `Benchmark` protocol.
+Each dataset entry needs an ID, a prompt, and a `docker_image`. Grading must print JSON with `task_id`, boolean `passed`, and numeric `score` from 0 to 1. Point `--benchmark` at the directory. The default `command` adapter handles JSON-array command-driven benchmarks. `jsonl` handles one JSON object per line and allows an `image_field` override. Try `uv run harness run --agent mini-swe-agent --benchmark jsonl-tasks` to submit the two additional sample tasks.
+
+To provide a **new adapter implementation**, publish/install a Python package containing an `agentic_harness.benchmarks` entry point:
+
+```toml
+[project.entry-points."agentic_harness.benchmarks"]
+my_benchmark = "my_package.benchmarks:MyBenchmark"
+```
+
+Set `"adapter": "my_benchmark"` in that benchmark's `harness.json`. The adapter class takes a root `Path`, exposes a `root` path, and implements the `Benchmark` protocol (`tasks`, `command`, `evaluate`); the CLI and worker both use `load_benchmark()` to find it. The package must be installed in **both** the CLI and worker Python environments. Benchmark directories are treated as data; the loader does **not** import Python modules directly from submitted benchmark source directories into the worker host.
+
+**Scope:** the current Docker runtime still follows setup → agent → evaluate with a shared workspace volume. A benchmark with interactive services or a different task lifecycle would need a runtime/worker extension in addition to an adapter. This is a pluggable benchmark interface, not zero-configuration compatibility with every external benchmark.
 
 ## Add an agent
 
@@ -132,13 +143,14 @@ make mini-smoke   # real mini CLI with simulated model responses; no API cost
 
 | Check | Recorded result | Command |
 | --- | --- | --- |
-| Local tests (after prompt-neutrality and step-limit fixes) | **29 passed**, 4 Docker cases excluded | `make test` |
-| Docker fixture lifecycle | 2 passed; covers both benchmarks | `make smoke` |
-| Real mini CLI, simulated model | 2 passed; covers both benchmarks | `make mini-smoke` |
+| Local tests (before benchmark plugin changes) | **29 passed**, 4 Docker cases excluded | `make test` |
+| New adapter-specific local tests | **6 passed** independently; full suite needs a fresh run | `make test` |
+| Docker fixture lifecycle (before new JSONL test) | 2 passed; covers the supplied benchmarks | `make smoke` |
+| Real mini CLI, simulated model | 2 passed; covers the supplied benchmarks | `make mini-smoke` |
 | Live mini-swe-agent / GPT-5 Mini | 8/8 tasks | API-backed run |
 | Live Responses agent / GPT-5.4 Mini | 8/8 tasks | API-backed run |
 
-The Docker and live outcomes above are **recorded development runs**, not fresh verification after the latest changes. The Responses agent's system prompt has since been made task-neutral, and its tool-round boundary behavior fixed; its recorded 8/8 score was obtained **before** those changes and should not be presented as a fresh live score. No API key is required for the three `make` commands. An 8/8 score on the supplied tasks establishes integration success, not general model reliability. See [`docs/validation.md`](docs/validation.md), [`LIVE_RESULTS.json`](LIVE_RESULTS.json), and [`RESPONSES_LIVE_RESULTS.json`](RESPONSES_LIVE_RESULTS.json) for evidence.
+The Docker and live outcomes above are **recorded development runs**, not fresh verification after the latest changes. The new JSONL example adds a fifth Docker test, which must still be run on a Docker-enabled machine. The Responses agent's system prompt has since been made task-neutral, and its tool-round boundary behavior fixed; its recorded 8/8 score was obtained **before** those changes and should not be presented as a fresh live score. No API key is required for the three `make` commands. An 8/8 score on the supplied tasks establishes integration success, not general model reliability. See [`docs/validation.md`](docs/validation.md), [`LIVE_RESULTS.json`](LIVE_RESULTS.json), and [`RESPONSES_LIVE_RESULTS.json`](RESPONSES_LIVE_RESULTS.json) for evidence.
 
 ## Limits
 

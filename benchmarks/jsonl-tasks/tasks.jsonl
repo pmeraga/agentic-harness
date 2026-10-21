@@ -1,0 +1,2 @@
+{"id":"text-001","instruction":"Create /workspace/answer.txt containing exactly the word alpha followed by a newline.","runtime":"alpine:latest","expected":"alpha\n"}
+{"id":"text-002","instruction":"Create /workspace/answer.txt containing exactly the word beta followed by a newline.","runtime":"python:3.11-slim","expected":"beta\n"}

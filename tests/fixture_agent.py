@@ -5,7 +5,9 @@ from pathlib import Path
 
 def solve(task_id, root):
     root = Path(root)
-    if task_id == 'bash-001':
+    if task_id in ('text-001', 'text-002'):
+        (root / 'answer.txt').write_text(('alpha' if task_id == 'text-001' else 'beta') + '\n')
+    elif task_id == 'bash-001':
         (root / 'hello.txt').write_text('Hello World')
     elif task_id == 'bash-002':
         (root / 'test_dir').mkdir()

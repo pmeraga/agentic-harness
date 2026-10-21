@@ -1,5 +1,6 @@
 """Explicit adapter boundaries: no benchmark-specific branches in the worker."""
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Protocol
 import json
@@ -45,13 +46,21 @@ class CommandBenchmark:
         for phase in ('setup', 'evaluate'):
             self.command(phase, Task('id', 'prompt', 'image'), '/workspace', '/benchmark')
 
+    def records(self, dataset: Path) -> list[dict]:
+        """Read the default JSON array format."""
+        records = json.loads(dataset.read_text())
+        if not isinstance(records, list):
+            raise ValueError('Dataset must be a JSON array')
+        return records
+
     def tasks(self):
         cfg = self.config
         dataset = (self.root / cfg.get('dataset', 'dataset.json')).resolve()
         if not dataset.is_relative_to(self.root):
             raise ValueError('Dataset must be inside the benchmark directory')
-        records = json.loads(dataset.read_text())
-        tasks = [Task(str(r[cfg['id_field']]), r[cfg['prompt_field']], r['docker_image']) for r in records]
+        records = self.records(dataset)
+        tasks = [Task(str(r[cfg['id_field']]), r[cfg['prompt_field']],
+                      r[cfg.get('image_field', 'docker_image')]) for r in records]
         if not tasks or len({t.id for t in tasks}) != len(tasks):
             raise ValueError('Dataset must contain unique task IDs and at least one task')
         if any(not t.id or not isinstance(t.prompt, str) or not isinstance(t.image, str) for t in tasks):
@@ -71,6 +80,55 @@ class CommandBenchmark:
             raise ValueError('Evaluator returned an invalid result')
         return {'task_id': task.id, 'passed': result['passed'], 'score': float(score),
                 'details': result.get('details', {})}
+
+
+class JsonlBenchmark(CommandBenchmark):
+    """Alternative dataset format: one JSON object per nonempty line."""
+
+    def records(self, dataset: Path) -> list[dict]:
+        records = []
+        for number, line in enumerate(dataset.read_text().splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'Invalid JSONL record on line {number}: {exc}') from exc
+            if not isinstance(record, dict):
+                raise ValueError(f'JSONL line {number} must contain an object')
+            records.append(record)
+        return records
+
+
+# Plugins are registered by installed Python packages, not imported from a
+# submitted benchmark directory. This avoids executing benchmark code in the
+# CLI/worker host while selecting an adapter.
+BUILTIN_BENCHMARKS = {'command': CommandBenchmark, 'jsonl': JsonlBenchmark}
+
+
+def load_benchmark(root: Path) -> Benchmark:
+    """Resolve a configured adapter for both the submitter and worker."""
+    root = Path(root).resolve()
+    config = read_config(root / 'harness.json')
+    name = config.get('adapter', 'command')
+    if not isinstance(name, str) or not name:
+        raise ValueError('Benchmark adapter must be a nonempty name')
+    implementation = BUILTIN_BENCHMARKS.get(name)
+    if implementation is None:
+        plugins = [ep for ep in entry_points(group='agentic_harness.benchmarks')
+                   if ep.name == name]
+        if len(plugins) != 1:
+            raise ValueError(f'Unknown or ambiguous benchmark adapter: {name!r}. '
+                             'Install a package providing an agentic_harness.benchmarks '
+                             'entry point or use a built-in adapter.')
+        implementation = plugins[0].load()
+    benchmark = implementation(root)
+    if not all(callable(getattr(benchmark, method, None))
+               for method in ('tasks', 'command', 'evaluate')):
+        raise ValueError(f'Benchmark adapter {name!r} must implement tasks, command, and evaluate')
+    if not isinstance(getattr(benchmark, 'root', None), Path):
+        raise ValueError(f'Benchmark adapter {name!r} must expose a root Path')
+    return benchmark
 
 
 class CommandAgent:

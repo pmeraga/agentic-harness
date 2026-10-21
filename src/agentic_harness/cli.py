@@ -10,7 +10,7 @@ import uuid
 
 import click
 
-from .adapters import CommandAgent, CommandBenchmark, read_config
+from .adapters import CommandAgent, load_benchmark, read_config
 from .runtime import doctor
 from .store import Store
 from .worker import work
@@ -59,7 +59,7 @@ def run(data, agent, benchmark, task_ids, wait, concurrency, timeout, cpus, memo
     bench_path = Path(benchmark)
     if not bench_path.is_dir():
         bench_path = ROOT / 'benchmarks' / benchmark
-    adapter = CommandBenchmark(bench_path)
+    adapter = load_benchmark(bench_path)
     tasks = adapter.tasks()
     if task_ids is not None:
         requested = [x.strip() for x in task_ids.split(',')]

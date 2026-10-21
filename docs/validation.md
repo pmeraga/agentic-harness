@@ -18,3 +18,9 @@ The `mini-swe-agent` live run reported 27 API calls and $0.05837265 in model cos
 During the initial repository review on Python 3.13, **26 passed and 4 Docker-marked tests were deselected**. Following that review, the Responses agent system prompt was made task-neutral and its final-response behavior at the step limit was fixed. Three regression tests were added; the local suite was rerun on Python 3.13 with **29 passed and 4 Docker-marked tests deselected**. The live Responses 8/8 result was recorded **before** these changes and must be revalidated before being attributed to the updated implementation. Docker and live API runs were not repeated in the review environment.
 
 To verify on another machine, run `make test`, `make smoke`, and `make mini-smoke` after building the images. Live API checks require valid credentials in the worker process. Nothing in these files proves broader benchmark performance beyond the supplied task set.
+
+## Benchmark adapter extension (latest change)
+
+The CLI and worker now resolve benchmarks through `load_benchmark()`, supporting built-in `command` and `jsonl` adapters and installed entry-point plugins. A two-task `jsonl-tasks` benchmark exercises the second adapter with a different dataset schema. Six new local adapter tests passed independently during preparation, including an end-to-end CLI → worker → grader test and a third-party entry-point discovery test. A fifth Docker-marked case was added for the JSONL benchmark but has not yet been run in the review environment. Historical 8/8 agent results concern only the original supplied benchmarks.
+
+Run `make test`, `make smoke`, and `make mini-smoke` on a Docker-enabled machine before relying on the updated test counts.
